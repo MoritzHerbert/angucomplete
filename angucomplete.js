@@ -1,3 +1,4 @@
+'use strict';
 /**
  * Angucomplete
  * Autocomplete directive for AngularJS
@@ -9,21 +10,22 @@ angular.module('angucomplete', [] )
     return {
         restrict: 'EA',
         scope: {
-            "id": "@id",
-            "placeholder": "@placeholder",
-            "selectedObject": "=selectedobject",
-            "url": "@url",
-            "dataField": "@datafield",
-            "titleField": "@titlefield",
-            "descriptionField": "@descriptionfield",
-            "imageField": "@imagefield",
-            "imageUri": "@imageuri",
-            "inputClass": "@inputclass",
-            "userPause": "@pause",
-            "localData": "=localdata",
-            "searchFields": "@searchfields",
-            "minLengthUser": "@minlength",
-            "matchClass": "@matchclass"
+            id: '@',
+            placeholder: '@',
+            selectedObject: '=selectedobject',
+            url: '@',
+            dataField: '@datafield',
+            titleField: '@titlefield',
+            descriptionField: '@descriptionfield',
+            imageField: '@imagefield',
+            imageUri: '@imageuri',
+            inputClass: '@inputclass',
+            userPause: '@pause',
+            localData: '=localdata',
+            searchFields: '@searchfields',
+            minLengthUser: '@minlength',
+            matchClass: '@matchclass',
+            searchStr: '=anguModel'
         },
         template: '<div class="angucomplete-holder"><input id="{{id}}_value" ng-model="searchStr" type="text" placeholder="{{placeholder}}" class="{{inputClass}}" onmouseup="this.select();" ng-focus="resetHideResults()" ng-blur="hideResults()" /><div id="{{id}}_dropdown" class="angucomplete-dropdown" ng-if="showDropdown"><div class="angucomplete-searching" ng-show="searching">Searching...</div><div class="angucomplete-searching" ng-show="!searching && (!results || results.length == 0)">No results found</div><div class="angucomplete-row" ng-repeat="result in results" ng-mousedown="selectResult(result)" ng-mouseover="hoverRow()" ng-class="{\'angucomplete-selected-row\': $index == currentIndex}"><div ng-if="imageField" class="angucomplete-image-holder"><img ng-if="result.image && result.image != \'\'" ng-src="{{result.image}}" class="angucomplete-image"/><div ng-if="!result.image && result.image != \'\'" class="angucomplete-image-default"></div></div><div class="angucomplete-title" ng-if="matchClass" ng-bind-html="result.title"></div><div class="angucomplete-title" ng-if="!matchClass">{{ result.title }}</div><div ng-if="result.description && result.description != \'\'" class="angucomplete-description">{{result.description}}</div></div></div></div>',
 
@@ -38,7 +40,7 @@ angular.module('angucomplete', [] )
             $scope.minLength = 3;
             $scope.searchStr = null;
 
-            if ($scope.minLengthUser && $scope.minLengthUser != "") {
+            if ($scope.minLengthUser && $scope.minLengthUser !== '') {
                 $scope.minLength = $scope.minLengthUser;
             }
 
@@ -46,17 +48,33 @@ angular.module('angucomplete', [] )
                 $scope.pause = $scope.userPause;
             }
 
-            isNewSearchNeeded = function(newTerm, oldTerm) {
-                return newTerm.length >= $scope.minLength && newTerm != oldTerm
-            }
+            var isNewSearchNeeded = function(newTerm, oldTerm) {
+                return newTerm.length >= $scope.minLength && newTerm !== oldTerm;
+            };
+
+            var getPropertyByPath = function(obj, path) {
+                var paths   = path.split('.'),
+                    current = obj,
+                    i;
+
+              for (i = 0; i < paths.length; ++i) {
+                if (current[paths[i]] === undefined) {
+                  return undefined;
+                } else {
+                  current = current[paths[i]];
+                }
+              }
+              return current;
+            };
+
 
             $scope.processResults = function(responseData, str) {
                 if (responseData && responseData.length > 0) {
                     $scope.results = [];
 
                     var titleFields = [];
-                    if ($scope.titleField && $scope.titleField != "") {
-                        titleFields = $scope.titleField.split(",");
+                    if ($scope.titleField && $scope.titleField !== '') {
+                        titleFields = $scope.titleField.split(',');
                     }
 
                     for (var i = 0; i < responseData.length; i++) {
@@ -64,20 +82,23 @@ angular.module('angucomplete', [] )
                         var titleCode = [];
 
                         for (var t = 0; t < titleFields.length; t++) {
-                            titleCode.push(responseData[i][titleFields[t]]);
+                            var code = getPropertyByPath(responseData[i], titleFields[t]);
+                            if (code) {
+                                titleCode.push(code);
+                            }
                         }
 
-                        var description = "";
+                        var description = '';
                         if ($scope.descriptionField) {
                             description = responseData[i][$scope.descriptionField];
                         }
 
-                        var imageUri = "";
+                        var imageUri = '';
                         if ($scope.imageUri) {
                             imageUri = $scope.imageUri;
                         }
 
-                        var image = "";
+                        var image = '';
                         if ($scope.imageField) {
                             image = imageUri + responseData[i][$scope.imageField];
                         }
@@ -94,7 +115,7 @@ angular.module('angucomplete', [] )
                             description: description,
                             image: image,
                             originalObject: responseData[i]
-                        }
+                        };
 
                         $scope.results[$scope.results.length] = resultRow;
                     }
@@ -103,26 +124,31 @@ angular.module('angucomplete', [] )
                 } else {
                     $scope.results = [];
                 }
-            }
+            };
 
             $scope.searchTimerComplete = function(str) {
                 // Begin the search
 
                 if (str.length >= $scope.minLength) {
                     if ($scope.localData) {
-                        var searchFields = $scope.searchFields.split(",");
-
-                        var matches = [];
+                        var searchFields = $scope.searchFields.split(','),
+                            matches = [];
 
                         for (var i = 0; i < $scope.localData.length; i++) {
-                            var match = false;
-
                             for (var s = 0; s < searchFields.length; s++) {
-                                match = match || (typeof $scope.localData[i][searchFields[s]] === 'string' && typeof str === 'string' && $scope.localData[i][searchFields[s]].toLowerCase().indexOf(str.toLowerCase()) >= 0);
-                            }
+                                var searchfieldVal = getPropertyByPath($scope.localData[i], searchFields[s]);
+                                if(typeof searchfieldVal === 'string' && typeof str === 'string' && searchfieldVal.toLowerCase().indexOf(str.toLowerCase()) >= 0) {
+                                    matches.push($scope.localData[i]);
+                                    break;
+                                }
 
-                            if (match) {
-                                matches[matches.length] = $scope.localData[i];
+                                if(!isNaN(searchfieldVal) && typeof str === 'string') {
+                                    var haystackAsString = searchfieldVal.toString();
+                                    if(haystackAsString.indexOf(str) >= 0) {
+                                        matches.push($scope.localData[i]);
+                                        break;
+                                    }
+                                }
                             }
                         }
 
@@ -131,16 +157,16 @@ angular.module('angucomplete', [] )
 
                     } else {
                         $http.get($scope.url + str, {}).
-                            success(function(responseData, status, headers, config) {
+                            success(function(responseData) {
                                 $scope.searching = false;
                                 $scope.processResults((($scope.dataField) ? responseData[$scope.dataField] : responseData ), str);
                             }).
                             error(function(data, status, headers, config) {
-                                console.log("error");
+                                console.log('error');
                             });
                     }
                 }
-            }
+            };
 
             $scope.hideResults = function() {
                 $scope.hideTimer = $timeout(function() {
@@ -151,20 +177,20 @@ angular.module('angucomplete', [] )
             $scope.resetHideResults = function() {
                 if($scope.hideTimer) {
                     $timeout.cancel($scope.hideTimer);
-                };
+                }
             };
 
             $scope.hoverRow = function(index) {
                 $scope.currentIndex = index;
-            }
+            };
 
             $scope.keyPressed = function(event) {
-                if (!(event.which == 38 || event.which == 40 || event.which == 13)) {
-                    if (!$scope.searchStr || $scope.searchStr == "") {
+                if (!(event.which === 38 || event.which === 40 || event.which === 13)) {
+                    if (!$scope.searchStr || $scope.searchStr === '') {
                         $scope.showDropdown = false;
-                        $scope.lastSearchTerm = null
+                        $scope.lastSearchTerm = null;
                     } else if (isNewSearchNeeded($scope.searchStr, $scope.lastSearchTerm)) {
-                        $scope.lastSearchTerm = $scope.searchStr
+                        $scope.lastSearchTerm = $scope.searchStr;
                         $scope.showDropdown = true;
                         $scope.currentIndex = -1;
                         $scope.results = [];
@@ -182,59 +208,60 @@ angular.module('angucomplete', [] )
                 } else {
                     event.preventDefault();
                 }
-            }
+            };
 
             $scope.selectResult = function(result) {
                 if ($scope.matchClass) {
                     result.title = result.title.toString().replace(/(<([^>]+)>)/ig, '');
                 }
+
                 $scope.searchStr = $scope.lastSearchTerm = result.title;
                 $scope.selectedObject = result;
                 $scope.showDropdown = false;
                 $scope.results = [];
                 //$scope.$apply();
-            }
+            };
 
             var inputField = elem.find('input');
 
             inputField.on('keyup', $scope.keyPressed);
 
-            elem.on("keyup", function (event) {
+            elem.on('keyup', function (event) {
                 if(event.which === 40) {
                     if ($scope.results && ($scope.currentIndex + 1) < $scope.results.length) {
                         $scope.currentIndex ++;
                         $scope.$apply();
-                        event.preventDefault;
+                        event.preventDefault();
                         event.stopPropagation();
                     }
 
                     $scope.$apply();
-                } else if(event.which == 38) {
+                } else if(event.which === 38) {
                     if ($scope.currentIndex >= 1) {
                         $scope.currentIndex --;
                         $scope.$apply();
-                        event.preventDefault;
+                        event.preventDefault();
                         event.stopPropagation();
                     }
 
-                } else if (event.which == 13) {
+                } else if (event.which === 13) {
                     if ($scope.results && $scope.currentIndex >= 0 && $scope.currentIndex < $scope.results.length) {
                         $scope.selectResult($scope.results[$scope.currentIndex]);
                         $scope.$apply();
-                        event.preventDefault;
+                        event.preventDefault();
                         event.stopPropagation();
                     } else {
                         $scope.results = [];
                         $scope.$apply();
-                        event.preventDefault;
+                        event.preventDefault();
                         event.stopPropagation();
                     }
 
-                } else if (event.which == 27) {
+                } else if (event.which === 27) {
                     $scope.results = [];
                     $scope.showDropdown = false;
                     $scope.$apply();
-                } else if (event.which == 8) {
+                } else if (event.which === 8) {
                     $scope.selectedObject = null;
                     $scope.$apply();
                 }
